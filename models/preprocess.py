@@ -89,5 +89,58 @@ def format_columns(df):
         .pipe(lambda df: df.rename(columns={c: c.upper() for c in df.columns}))
     )
 
+def reshape_worldbank(df):
+    indicators = (
+        "Air transport, passengers carried",
+        "Cause of death, by communicable diseases and maternal, prenatal and nutrition conditions (% of total)",
+        "Cause of death, by non-communicable diseases (% of total)",
+        "Current health expenditure per capita, PPP (current international $)",
+        "Death rate, crude (per 1,000 people)",
+        "Diabetes prevalence (% of population ages 20 to 79)",
+        "GDP per capita, PPP (current international $)",
+        "Hospital beds (per 1,000 people)",
+        "Incidence of tuberculosis (per 100,000 people)",
+        "International migrant stock, total",
+        "International tourism, number of arrivals",
+        "International tourism, number of departures",
+        "Labor force participation rate, total (% of total population ages 15+) (modeled ILO estimate)",
+        "Life expectancy at birth, total (years)",
+        "Mortality from CVD, cancer, diabetes or CRD between exact ages 30 and 70 (%)",
+        "Mortality rate attributed to household and ambient air pollution, age-standardized (per 100,000 population)",
+        "Mortality rate attributed to unsafe water, unsafe sanitation and lack of hygiene (per 100,000 population)",
+        "Mortality rate, adult, female (per 1,000 female adults)",
+        "Mortality rate, adult, male (per 1,000 male adults)",
+        "Number of people spending more than 10% of household consumption or income on out-of-pocket health care expenditure",
+        "Number of people spending more than 25% of household consumption or income on out-of-pocket health care expenditure",
+        "Nurses and midwives (per 1,000 people)",
+        "Out-of-pocket expenditure (% of current health expenditure)",
+        "PM2.5 air pollution, population exposed to levels exceeding WHO guideline value (% of total)",
+        "People using at least basic sanitation services (% of population)",
+        "People using safely managed sanitation services (% of population)",
+        "People with basic handwashing facilities including soap and water (% of population)",
+        "Physicians (per 1,000 people)",
+        "Population ages 15-64 (% of total)",
+        "Population ages 65 and above (% of total)",
+        "Population density (people per sq. km of land area)",
+        "Population in the largest city (% of urban population)",
+        "Population in urban agglomerations of more than 1 million (% of total population)",
+        "Population, total",
+        "Poverty headcount ratio at $3.20 a day (2011 PPP) (% of population)",
+        "Prevalence of HIV, total (% of population ages 15-49)",
+        "Smoking prevalence, females (% of adults)",
+        "Smoking prevalence, males (% of adults)",
+        "Survival to age 65, female (% of cohort)",
+        "Survival to age 65, male (% of cohort)",
+        "Trade (% of GDP)",
+        "Tuberculosis case detection rate (%, all forms)",
+        "Tuberculosis treatment success rate (% of new cases)",
+        "Urban population (% of total)",
+    )
 
-d = download_data()
+    return (
+        df
+        .pipe(lambda df: df[df["INDICATOR_NAME"].isin(indicators)])
+        .drop(["INDICATOR_CODE", "COUNTRY_CODE", "UNNAMED:_63"], axis=1)
+        .melt(id_vars=["COUNTRY_NAME", "INDICATOR_NAME"], var_name="Year")
+        .replace({"United States": "US"})
+    )
