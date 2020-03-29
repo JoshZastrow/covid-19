@@ -78,16 +78,14 @@ def unzip_files(source_dir):
             ZipFile(f).extract(member=file, path=path)
 
 
-def format_columns(df):
+def format_columns(df): 
     return (
-        df.pipe(lambda df: df.rename(columns={c: c.split("/")[0] for c in df.columns}))
-        .pipe(
-            lambda df: df.rename(
-                columns={c: c.split(" ") | p("_".join) for c in df.columns}
-            )
-        )
+        df
+        .pipe(lambda df: df.rename(columns={c: c.split("/")[0] for c in df.columns}))
+        .pipe(lambda df: df.rename(columns={c: c.replace(" ", "_") for c in df.columns}))
         .pipe(lambda df: df.rename(columns={c: c.upper() for c in df.columns}))
     )
+
 
 def reshape_worldbank(df):
     indicators = (
@@ -137,10 +135,71 @@ def reshape_worldbank(df):
         "Urban population (% of total)",
     )
 
-    return (
-        df
-        .pipe(lambda df: df[df["INDICATOR_NAME"].isin(indicators)])
+    df = (
+        df.pipe(lambda df: df[df["INDICATOR_NAME"].isin(indicators)])
         .drop(["INDICATOR_CODE", "COUNTRY_CODE", "UNNAMED:_63"], axis=1)
-        .melt(id_vars=["COUNTRY_NAME", "INDICATOR_NAME"], var_name="Year")
+        .melt(
+            id_vars=["COUNTRY_NAME", "INDICATOR_NAME"],
+            var_name="YEAR",
+            value_name="VALUE",
+        )
+        .assign(YEAR=lambda df: df.YEAR.astype("datetime64[Y]"))
         .replace({"United States": "US"})
+    )
+
+    return df
+
+
+def keep_latest_years(df, year_offset=30):
+    from pandas.tseries.offsets import DateOffset
+
+    return df[df["YEAR"] >= (df["YEAR"].max() - DateOffset(years=year_offset))]
+
+
+def interpolate_values(df):
+    df["VALUE"] = df.groupby(["COUNTRY_NAME", "INDICATOR_NAME"]).VALUE.apply(
+        lambda s: s.interpolate(method="linear")
+    )
+    return df
+
+
+def summarize(df):
+    def calculate_growth_rate(series):
+        series = series.reset_index(drop=True)
+
+        idx = np.isfinite(series)
+
+        if not any(idx):
+            return np.nan
+
+        x = series.loc[idx].index
+        y = series.loc[idx]
+
+        n = x[~0]  # total number of periods
+
+        assert n > 0
+
+        y_0 = y.iloc[0]
+        y_n = y.iloc[~0]
+
+        growth_rate = (y_n / y_0) ** (1 / n) - 1
+
+        return growth_rate
+
+    return (
+        df.groupby(["COUNTRY_NAME", "INDICATOR_NAME"])
+        .agg(
+            CURRENT_YEAR=("YEAR", "last"),
+            CURRENT_VALUE=("VALUE", "last"),
+            AVERAGE_VALUE=("VALUE", "mean"),
+            GROWTH_RATE=("VALUE", calculate_growth_rate),
+        )
+        .reset_index()
+    )
+
+def pivot(df):
+    return df.pivot(
+        index="COUNTRY_NAME",
+        columns="INDICATOR_NAME",
+        values=["GROWTH_RATE", "CURRENT_VALUE", "AVERAGE_VALUE"],
     )
